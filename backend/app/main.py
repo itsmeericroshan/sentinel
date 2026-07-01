@@ -106,8 +106,10 @@ def zone_citation(zone_id: str):
     return {"results": retrieve(query)}
 
 
+from typing import Optional
+
 class TickRequest(BaseModel):
-    reset_to: int | None = None
+    reset_to: Optional[int] = None
 
 
 @app.post("/api/tick")
