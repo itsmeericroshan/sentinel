@@ -109,7 +109,7 @@ def _weighted_fallback(state: ZoneState, override_permit=None) -> float:
     return min(1.0, base * compound)
 
 
-def causal_risk(state: ZoneState, override_permit: int | None = None) -> float:
+def causal_risk(state: ZoneState, override_permit=None) -> float:
     """Returns ignition/incident risk probability in [0, 1]."""
     if not PGMPY_AVAILABLE:
         return _weighted_fallback(state, override_permit)
