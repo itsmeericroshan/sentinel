@@ -6,11 +6,14 @@ near-miss reports into ChromaDB, and retrieves the most relevant clause
 plus precedent whenever a zone crosses elevated risk.
 """
 
-import chromadb
-from chromadb.utils import embedding_functions
-
-_CLIENT = chromadb.Client()
-_EMBED_FN = embedding_functions.DefaultEmbeddingFunction()
+try:
+    import chromadb
+    from chromadb.utils import embedding_functions
+    _CLIENT = chromadb.Client()
+    _EMBED_FN = embedding_functions.DefaultEmbeddingFunction()
+    CHROMA_AVAILABLE = True
+except Exception:
+    CHROMA_AVAILABLE = False
 
 _CORPUS = [
     {
@@ -53,19 +56,33 @@ _CORPUS = [
     },
 ]
 
-_collection = _CLIENT.get_or_create_collection(
-    name="sentinel_regulatory_corpus", embedding_function=_EMBED_FN
-)
-
-if _collection.count() == 0:
-    _collection.add(
-        ids=[c["id"] for c in _CORPUS],
-        documents=[c["text"] for c in _CORPUS],
-        metadatas=[{"type": c["type"]} for c in _CORPUS],
+if CHROMA_AVAILABLE:
+    _collection = _CLIENT.get_or_create_collection(
+        name="sentinel_regulatory_corpus", embedding_function=_EMBED_FN
     )
+    if _collection.count() == 0:
+        _collection.add(
+            ids=[c["id"] for c in _CORPUS],
+            documents=[c["text"] for c in _CORPUS],
+            metadatas=[{"type": c["type"]} for c in _CORPUS],
+        )
+
+
+def _keyword_fallback(query: str, n_results: int) -> list[dict]:
+    """Simple keyword-overlap retrieval used when ChromaDB is unavailable."""
+    q_words = set(query.lower().split())
+    scored = []
+    for c in _CORPUS:
+        overlap = len(q_words & set(c["text"].lower().split()))
+        scored.append((overlap, c))
+    scored.sort(key=lambda x: -x[0])
+    return [{"text": c["text"], "type": c["type"]} for _, c in scored[:n_results]]
 
 
 def retrieve(query: str, n_results: int = 2) -> list[dict]:
+    if not CHROMA_AVAILABLE:
+        return _keyword_fallback(query, n_results)
+
     results = _collection.query(query_texts=[query], n_results=n_results)
     out = []
     for doc, meta in zip(results["documents"][0], results["metadatas"][0]):

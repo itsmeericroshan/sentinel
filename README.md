@@ -92,6 +92,44 @@ git remote add origin https://github.com/<your-username>/sentinel.git
 git push -u origin main
 ```
 
+## Deploying it live (free hosting — backend on Render, frontend on Vercel)
+
+### 1. Deploy the backend on Render
+
+1. Go to [render.com](https://render.com) and sign in with GitHub.
+2. Click **New +** → **Blueprint**.
+3. Select your `sentinel` repository. Render will detect `render.yaml`
+   at the repo root automatically.
+4. It will show one service, `sentinel-backend`, building from the
+   `backend` folder. Click **Apply**.
+5. (Optional) Add your `ANTHROPIC_API_KEY` under the service's
+   **Environment** tab if you want live Claude API agent scoring instead
+   of the deterministic fallback.
+6. Wait for the build to finish (a few minutes — installing pgmpy and
+   chromadb takes a while the first time). Once live, copy the URL Render
+   gives you, e.g. `https://sentinel-backend.onrender.com`.
+7. Visit `https://<your-backend-url>/api/health` — it should return
+   `{"status":"ok"}`. If it does, the backend is live.
+
+> Free Render services sleep after inactivity and take ~30-60 seconds to
+> wake on the first request. Open the URL once a few minutes before your
+> demo so it's already warm.
+
+### 2. Deploy the frontend on Vercel
+
+1. Go to [vercel.com](https://vercel.com) and sign in with GitHub.
+2. Click **Add New** → **Project**, select your `sentinel` repository.
+3. Under **Root Directory**, click **Edit** and set it to `frontend`.
+4. Under **Environment Variables**, add:
+   - Key: `VITE_API_BASE`
+   - Value: your Render backend URL from step 1 (no trailing slash)
+5. Click **Deploy**.
+6. Once finished, Vercel gives you a public URL like
+   `https://sentinel-yourname.vercel.app` — that's your live demo link.
+
+That URL is what you share with judges. Both services redeploy
+automatically whenever you push new commits to `main`.
+
 ## Judging criteria alignment
 
 | Criterion | How this addresses it |
