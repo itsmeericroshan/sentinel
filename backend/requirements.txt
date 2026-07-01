@@ -1,6 +1,7 @@
-fastapi==0.115.0
-uvicorn[standard]==0.30.6
-pgmpy==0.1.26
-chromadb==0.5.5
+fastapi==0.103.2
+uvicorn[standard]==0.23.2
+pydantic==1.10.13
+chromadb==0.4.15
 anthropic==0.34.2
-pydantic==2.9.0
+pgmpy==0.1.25
+numpy==1.24.4
