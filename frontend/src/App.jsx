@@ -1,12 +1,27 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from './api'
+import Navbar from './components/Navbar.jsx'
 import ZoneMap from './components/ZoneMap.jsx'
 import DetailPanel from './components/DetailPanel.jsx'
 import AgentPanel from './components/AgentPanel.jsx'
 import CitationPanel from './components/CitationPanel.jsx'
 import AlertLog from './components/AlertLog.jsx'
+import AboutPage from './components/AboutPage.jsx'
+import HowItWorksPage from './components/HowItWorksPage.jsx'
 
-export default function App() {
+function Card({ title, badge, children }) {
+  return (
+    <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+      <div className="flex justify-between items-center px-5 py-3.5 border-b border-gray-200 bg-gray-50">
+        <h2 className="font-semibold text-sm uppercase tracking-wider text-gray-800">{title}</h2>
+        {badge && <span className="text-xs font-mono text-gray-400">{badge}</span>}
+      </div>
+      <div className="p-5">{children}</div>
+    </div>
+  )
+}
+
+function Dashboard() {
   const [zones, setZones] = useState([])
   const [tick, setTick] = useState(0)
   const [selected, setSelected] = useState('cobA')
@@ -20,169 +35,110 @@ export default function App() {
   const intervalRef = useRef(null)
 
   async function refreshAll() {
-    const z = await api.zones()
-    setZones(z.zones)
-    setTick(z.tick)
-    const d = await api.zoneDetail(selected)
-    setDetail(d)
-    const ag = await api.agents(selected)
-    setAgentData(ag)
-    const cit = await api.citation(selected)
-    setCitations(cit.results)
-    const al = await api.alerts()
-    setAlerts(al.alerts)
+    try {
+      const [z, d, ag, cit, al] = await Promise.all([
+        api.zones(), api.zoneDetail(selected),
+        api.agents(selected), api.citation(selected), api.alerts()
+      ])
+      setZones(z.zones); setTick(z.tick)
+      setDetail(d); setAgentData(ag)
+      setCitations(cit.results); setAlerts(al.alerts)
+    } catch (e) { console.error(e) }
   }
 
-  useEffect(() => {
-    refreshAll()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected])
+  useEffect(() => { refreshAll() }, [selected])
 
   useEffect(() => {
-    intervalRef.current = setInterval(async () => {
-      await api.tick()
-      refreshAll()
-    }, 2500)
+    intervalRef.current = setInterval(async () => { await api.tick(); refreshAll() }, 2500)
     return () => clearInterval(intervalRef.current)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected])
 
-  async function handleSelect(id) {
-    setSelected(id)
-    setCounterfactual(null)
-  }
-
-  async function handleCounterfactual() {
-    const cf = await api.counterfactual(selected)
-    setCounterfactual(cf)
-  }
-
-  async function handleAck(id) {
-    await api.ackAlert(id)
-    const al = await api.alerts()
-    setAlerts(al.alerts)
-  }
+  async function handleSelect(id) { setSelected(id); setCounterfactual(null) }
+  async function handleCounterfactual() { const cf = await api.counterfactual(selected); setCounterfactual(cf) }
+  async function handleAck(id) { await api.ackAlert(id); const al = await api.alerts(); setAlerts(al.alerts) }
 
   async function handleReplay() {
     if (replaying) return
-    setReplaying(true)
-    setSelected('cobA')
+    setReplaying(true); setSelected('cobA')
     setReplayMsg('Replaying compound-risk incident on Coke Oven Battery A — accelerated timeline.')
     clearInterval(intervalRef.current)
-
     await api.tick(25)
-    let t = 25
-    let flaggedAt = null
-
+    let t = 25, flaggedAt = null
     intervalRef.current = setInterval(async () => {
-      const res = await api.tick()
-      t = res.tick
+      const res = await api.tick(); t = res.tick
       const d = await api.zoneDetail('cobA')
       if (flaggedAt === null && d.risk >= 0.65) flaggedAt = t
       await refreshAll()
-
       if (t >= 55) {
-        clearInterval(intervalRef.current)
-        setReplaying(false)
+        clearInterval(intervalRef.current); setReplaying(false)
         const lead = flaggedAt !== null ? t - flaggedAt : 0
-        setReplayMsg(
-          flaggedAt !== null
-            ? `SENTINEL flagged this pattern at t=${flaggedAt} — full compound conditions only emerged at t=${t}. Lead time: ${lead} ticks before a single-sensor system would have reacted.`
-            : 'Replay complete.'
-        )
-        intervalRef.current = setInterval(async () => {
-          await api.tick()
-          refreshAll()
-        }, 2500)
+        setReplayMsg(flaggedAt !== null
+          ? `✓ SENTINEL flagged at t=${flaggedAt} — full danger only at t=${t}. Lead time: ${lead} ticks ahead of single-sensor systems.`
+          : 'Replay complete.')
+        intervalRef.current = setInterval(async () => { await api.tick(); refreshAll() }, 2500)
       }
     }, 200)
   }
 
-  const maxRisk = zones.length ? Math.max(...zones.map((z) => z.risk)) : 0
-  const statusLabel = maxRisk >= 0.65 ? 'Critical — action required' : maxRisk >= 0.4 ? 'Elevated' : 'Nominal'
-  const statusColor = maxRisk >= 0.65 ? 'bg-danger' : maxRisk >= 0.4 ? 'bg-amber' : 'bg-safe'
+  const maxRisk = zones.length ? Math.max(...zones.map(z => z.risk)) : 0
+  const statusLabel = maxRisk >= 0.65 ? 'Critical — Action Required' : maxRisk >= 0.4 ? 'Elevated' : 'Nominal'
+  const statusColor = maxRisk >= 0.65 ? 'bg-red-600 text-white' : maxRisk >= 0.4 ? 'bg-amber-500 text-white' : 'bg-green-600 text-white'
+  const selectedZoneName = zones.find(z => z.id === selected)?.name || 'Select a zone'
 
   return (
-    <div className="min-h-screen p-6">
-      <header className="flex flex-wrap justify-between items-center gap-3 border-b border-border pb-4 mb-5">
-        <div className="flex items-baseline gap-2.5">
-          <h1 className="font-display text-[22px] font-bold tracking-wide">SENTINEL</h1>
-          <span className="text-[12px] text-text3">Compound risk intelligence · Coke oven battery complex</span>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      <div className="flex flex-wrap justify-between items-center gap-3 mb-5">
+        <div className="flex items-center gap-3">
+          <div className={`px-4 py-2 rounded-xl font-bold text-sm ${statusColor}`}>● {statusLabel}</div>
+          <span className="font-mono text-xs text-gray-400 bg-gray-100 border border-gray-200 px-3 py-2 rounded-lg">t = {String(tick).padStart(2,'0')}</span>
         </div>
-        <div className="flex items-center gap-3.5">
-          <div className="flex items-center gap-2.5 bg-panel border border-border rounded-lg px-4 py-2">
-            <span className={`w-2.5 h-2.5 rounded-full ${statusColor}`} />
-            <div>
-              <div className="text-[11px] uppercase tracking-wide text-text3">Plant status</div>
-              <div className="text-[15px] font-semibold">{statusLabel}</div>
-            </div>
-          </div>
-          <button
-            onClick={handleReplay}
-            disabled={replaying}
-            className="text-[12px] font-medium bg-panel2 border border-border rounded-md px-3 py-2 hover:border-amber hover:text-amber transition-colors disabled:opacity-40"
-          >
-            ▶ Replay compound-risk incident
-          </button>
-        </div>
-      </header>
+        <button onClick={handleReplay} disabled={replaying}
+          className="bg-gray-900 text-white font-semibold text-sm px-4 py-2 rounded-xl hover:bg-gray-700 transition-colors disabled:opacity-40">
+          ▶ Replay Compound-Risk Incident
+        </button>
+      </div>
 
       {replayMsg && (
-        <div className="mb-4 px-4 py-2.5 bg-[#5A4017] border border-amber rounded-lg text-[12.5px] text-[#F8DBA5]">
+        <div className={`mb-4 px-4 py-3 rounded-xl border text-sm font-medium
+          ${replayMsg.startsWith('✓') ? 'bg-green-50 border-green-300 text-green-800' : 'bg-amber-50 border-amber-300 text-amber-800'}`}>
           {replayMsg}
         </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-5">
         <div className="space-y-5">
-          <div className="bg-panel border border-border rounded-xl p-4.5">
-            <div className="flex justify-between items-center mb-3.5">
-              <h2 className="text-[14px] font-semibold uppercase tracking-wide text-text2">Geospatial risk map</h2>
-              <span className="font-mono text-[11px] text-text3">t = {String(tick).padStart(2, '0')}</span>
-            </div>
+          <Card title="Geospatial Risk Map" badge={`t = ${String(tick).padStart(2,'0')}`}>
             <ZoneMap zones={zones} selected={selected} onSelect={handleSelect} />
-          </div>
-
-          <div className="bg-panel border border-border rounded-xl p-4.5">
-            <h2 className="text-[14px] font-semibold uppercase tracking-wide text-text2 mb-3.5">
-              Active alerts &amp; SLA escalation
-            </h2>
+          </Card>
+          <Card title="Active Alerts & SLA Escalation">
             <AlertLog alerts={alerts} onAck={handleAck} />
-          </div>
+          </Card>
         </div>
-
         <div className="space-y-5">
-          <div className="bg-panel border border-border rounded-xl p-4.5">
-            <h2 className="text-[14px] font-semibold uppercase tracking-wide text-text2 mb-3.5">
-              {detail ? zones.find((z) => z.id === selected)?.name : 'Select a zone'}
-            </h2>
-            <DetailPanel
-              zoneName={selected}
-              detail={detail}
-              counterfactual={counterfactual}
-              onRunCounterfactual={handleCounterfactual}
-            />
-          </div>
-
-          <div className="bg-panel border border-border rounded-xl p-4.5">
-            <h2 className="text-[14px] font-semibold uppercase tracking-wide text-text2 mb-3.5">
-              Multi-agent disagreement layer
-            </h2>
+          <Card title={selectedZoneName}>
+            <DetailPanel zoneName={selected} detail={detail} counterfactual={counterfactual} onRunCounterfactual={handleCounterfactual} />
+          </Card>
+          <Card title="Multi-Agent Disagreement Layer">
             <AgentPanel agentData={agentData} />
-          </div>
-
-          <div className="bg-panel border border-border rounded-xl p-4.5">
-            <h2 className="text-[14px] font-semibold uppercase tracking-wide text-text2 mb-3.5">
-              Regulatory grounding (RAG)
-            </h2>
+          </Card>
+          <Card title="Regulatory Grounding (RAG)">
             <CitationPanel citations={citations} />
-          </div>
+          </Card>
         </div>
       </div>
+      <div className="mt-6 text-center text-xs text-gray-400">SENTINEL — built for ET AI Hackathon 2026. Synthetic data for demonstration.</div>
+    </div>
+  )
+}
 
-      <footer className="text-center text-[11px] text-text3 mt-7">
-        SENTINEL — built for ET AI Hackathon 2026. Synthetic data for demonstration.
-      </footer>
+export default function App() {
+  const [page, setPage] = useState('dashboard')
+  return (
+    <div className="min-h-screen bg-white">
+      <Navbar page={page} setPage={setPage} />
+      {page === 'dashboard' && <Dashboard />}
+      {page === 'how' && <HowItWorksPage />}
+      {page === 'about' && <AboutPage />}
     </div>
   )
 }
