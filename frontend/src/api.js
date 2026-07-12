@@ -20,8 +20,5 @@ export const api = {
   ackAlert: (id) => req(`/api/alerts/${id}/ack`, { method: 'POST' }),
 }
 
-// Wake up backend immediately when page loads
 fetch(`${BASE}/api/health`).catch(() => {})
-
-// Keep backend alive every 14 minutes so it never sleeps
-setInterval(() => { fetch(`${BASE}/api/health`).catch(() => {}) }, 14 * 60 * 1000)
+setInterval(() => { fetch(`${BASE}/api/health`).catch(() => {}) }, 30 * 1000)
