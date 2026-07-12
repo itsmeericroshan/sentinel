@@ -4,5 +4,4 @@ pydantic
 anthropic
 pgmpy
 numpy
-chromadb
 setuptools
