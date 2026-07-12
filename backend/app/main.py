@@ -7,12 +7,14 @@ Endpoints:
   POST /api/zones/{zone_id}/counterfactual -> revoke-permit counterfactual
   GET  /api/zones/{zone_id}/agents      -> multi-agent disagreement scores
   GET  /api/zones/{zone_id}/citation    -> RAG regulatory grounding
+  POST /api/zones/{zone_id}/emergency-report -> generate incident report PDF
   POST /api/tick                        -> advance the simulated clock
   GET  /api/alerts                      -> active alert log with SLA state
   POST /api/alerts/{alert_id}/ack       -> acknowledge an alert
 """
 
 import time
+from typing import Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -106,7 +108,23 @@ def zone_citation(zone_id: str):
     return {"results": retrieve(query)}
 
 
-from typing import Optional
+@app.post("/api/zones/{zone_id}/emergency-report")
+def emergency_report(zone_id: str):
+    from .orchestrator import generate_incident_report
+    s = _zone_state(zone_id, STATE["tick"])
+    r = causal_risk(s)
+    zone_name = next((z["name"] for z in ZONES if z["id"] == zone_id), zone_id)
+    query = f"gas {s.gas:.0f} ventilation {s.vent:.0f} permit {s.permit}"
+    citations = retrieve(query)
+    report = generate_incident_report(
+        zone_name=zone_name,
+        risk_score=r,
+        readings={"gas": s.gas, "vent": s.vent, "permit": s.permit, "maint": s.maint, "prox": s.prox},
+        rag_citations=citations,
+        tick=STATE["tick"],
+    )
+    return report
+
 
 class TickRequest(BaseModel):
     reset_to: Optional[int] = None
