@@ -18,6 +18,7 @@ export const api = {
   tick: (resetTo) => req('/api/tick', { method: 'POST', body: JSON.stringify({ reset_to: resetTo ?? null }) }),
   alerts: () => req('/api/alerts'),
   ackAlert: (id) => req(`/api/alerts/${id}/ack`, { method: 'POST' }),
+  emergencyReport: (id) => req(`/api/zones/${id}/emergency-report`, { method: 'POST' }),
 }
 
 fetch(`${BASE}/api/health`).catch(() => {})
