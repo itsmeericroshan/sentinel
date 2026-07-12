@@ -16,25 +16,25 @@ function GuidedTour() {
     <div className="bg-gray-900 text-white rounded-2xl p-6 mb-6 relative">
       <button onClick={() => setDismissed(true)}
         className="absolute top-4 right-4 text-gray-400 hover:text-white text-xl font-bold">×</button>
-      <div style={{color:'#FF3333', fontFamily:'Georgia,serif', fontSize:'18px', fontWeight:'900', letterSpacing:'0.05em'}} className="mb-4">
+      <div style={{color:'#FF3333',fontFamily:'Georgia,serif',fontSize:'18px',fontWeight:'900',letterSpacing:'0.05em'}} className="mb-4">
         HOW TO USE THIS DASHBOARD
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { step:'01', title:'Watch the live map', desc:'The 6 zone cards update every 2.5 seconds — simulating real plant sensor data (gas, ventilation, permits, worker proximity). Green = safe. Red = critical.' },
-          { step:'02', title:'Click any zone', desc:'Click a zone card to see its full causal breakdown — exactly which sensor combination is driving the risk score, and whether a single-sensor system would have caught it.' },
-          { step:'03', title:'Run the replay', desc:'Click "Replay Compound-Risk Incident" — watch SENTINEL detect the Vizag-pattern danger on Coke Oven Battery A before full compound conditions emerge. See the lead time live.' },
-          { step:'04', title:'Acknowledge the alert', desc:'When risk crosses 65%, an alert fires with a countdown timer. Click Acknowledge before it hits zero — or watch it auto-escalate. That escalation is what saves lives.' },
-        ].map((s, i) => (
+          {step:'01',title:'Watch the live map',desc:'The 6 zone cards update every 2.5 seconds — simulating real plant sensor data (gas, ventilation, permits, worker proximity). Green = safe. Red = critical.'},
+          {step:'02',title:'Click any zone',desc:'Click a zone card to see its full causal breakdown — exactly which sensor combination is driving the risk score, and whether a single-sensor system would have caught it.'},
+          {step:'03',title:'Run the replay',desc:'Click "Replay Compound-Risk Incident" — watch SENTINEL detect the Vizag-pattern danger on Coke Oven Battery A before full compound conditions emerge. See the lead time live.'},
+          {step:'04',title:'Generate incident report',desc:'When a zone hits Critical, click the red Emergency Report button to auto-generate a regulatory-compliant PDF incident report instantly.'},
+        ].map((s,i) => (
           <div key={i} className="bg-gray-800 rounded-xl p-4">
-            <div style={{color:'#FF3333', fontFamily:'Georgia,serif', fontSize:'24px', fontWeight:'900'}}>{s.step}</div>
+            <div style={{color:'#FF3333',fontFamily:'Georgia,serif',fontSize:'24px',fontWeight:'900'}}>{s.step}</div>
             <div className="font-semibold text-white text-sm mt-1 mb-2">{s.title}</div>
             <div className="text-gray-400 text-xs leading-relaxed">{s.desc}</div>
           </div>
         ))}
       </div>
       <div className="mt-4 pt-4 border-t border-gray-700 text-xs text-gray-500">
-        ⚠ This is a prototype using <strong className="text-gray-300">synthetic simulated data</strong> — no real sensors are connected. The risk engine, agent scoring, counterfactual analysis, and SLA escalation are all real working code.
+        ⚠ This is a prototype using <strong className="text-gray-300">synthetic simulated data</strong> — no real sensors are connected. The risk engine, agent scoring, counterfactual analysis, SLA escalation, and PDF report generation are all real working code.
       </div>
     </div>
   )
@@ -64,6 +64,7 @@ function Dashboard() {
   const [replaying, setReplaying] = useState(false)
   const [replayMsg, setReplayMsg] = useState('')
   const [loading, setLoading] = useState(true)
+  const [reportLoading, setReportLoading] = useState(false)
   const intervalRef = useRef(null)
 
   async function refreshAll() {
@@ -89,6 +90,22 @@ function Dashboard() {
   async function handleSelect(id) { setSelected(id); setCounterfactual(null) }
   async function handleCounterfactual() { const cf = await api.counterfactual(selected); setCounterfactual(cf) }
   async function handleAck(id) { await api.ackAlert(id); const al = await api.alerts(); setAlerts(al.alerts) }
+
+  async function handleEmergencyReport() {
+    setReportLoading(true)
+    try {
+      const data = await api.emergencyReport(selected)
+      if (data.pdf_available && data.pdf_base64) {
+        const link = document.createElement('a')
+        link.href = `data:application/pdf;base64,${data.pdf_base64}`
+        link.download = data.filename || 'incident-report.pdf'
+        link.click()
+      } else {
+        alert(`Report generated: ${data.report.report_id}\nSeverity: ${data.report.severity}\nActions:\n${data.report.actions.slice(0,3).join('\n')}`)
+      }
+    } catch(e) { alert('Report generation failed: ' + e.message) }
+    finally { setReportLoading(false) }
+  }
 
   async function handleReplay() {
     if (replaying) return
@@ -133,7 +150,9 @@ function Dashboard() {
       <div className="flex flex-wrap justify-between items-center gap-3 mb-5">
         <div className="flex items-center gap-3">
           <div className={`px-4 py-2 rounded-xl font-bold text-sm ${statusColor}`}>● {statusLabel}</div>
-          <span className="font-mono text-xs text-gray-400 bg-gray-100 border border-gray-200 px-3 py-2 rounded-lg">Simulated clock: t = {String(tick).padStart(2,'0')} / 60</span>
+          <span className="font-mono text-xs text-gray-400 bg-gray-100 border border-gray-200 px-3 py-2 rounded-lg">
+            Simulated clock: t = {String(tick).padStart(2,'0')} / 60
+          </span>
         </div>
         <button onClick={handleReplay} disabled={replaying}
           className="bg-gray-900 text-white font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-gray-700 transition-colors disabled:opacity-40 flex items-center gap-2">
@@ -163,7 +182,14 @@ function Dashboard() {
         <div className="space-y-5">
           <Card title={`Zone Detail — ${selectedZoneName}`}>
             <p className="text-xs text-gray-400 mb-3">Causal breakdown of what is driving this zone's risk score. Use "Run Counterfactual" to see what one intervention would change.</p>
-            <DetailPanel zoneName={selected} detail={detail} counterfactual={counterfactual} onRunCounterfactual={handleCounterfactual} />
+            <DetailPanel
+              zoneName={selected}
+              detail={detail}
+              counterfactual={counterfactual}
+              onRunCounterfactual={handleCounterfactual}
+              onEmergencyReport={handleEmergencyReport}
+              reportLoading={reportLoading}
+            />
           </Card>
           <Card title="Multi-Agent Disagreement Layer">
             <p className="text-xs text-gray-400 mb-3">4 specialist agents score independently. High variance between them = novel dangerous pattern never seen before.</p>
