@@ -3,6 +3,8 @@
 Built for **ET AI Hackathon 2026** — Track 1: AI-Powered Industrial Safety
 Intelligence for Zero-Harm Operations.
 
+https://sentinel-n7atawlih-eric-roshan-t-s-projects.vercel.app/
+
 ## The problem
 
 Eight workers died at the Visakhapatnam Steel Plant coke-oven battery in
