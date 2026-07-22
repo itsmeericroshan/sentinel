@@ -63,11 +63,9 @@ def _maybe_raise_alerts():
 
 @app.get("/api/zones")
 def list_zones():
-    out = []
-    for z in ZONES:
-        s = _zone_state(z["id"], STATE["tick"])
-        out.append({
+    out.append({
             "id": z["id"], "name": z["name"],
+            "x": z["x"], "y": z["y"], "w": z["w"], "h": z["h"],
             "risk": causal_risk(s),
             "baseline_flag": single_sensor_baseline(s),
         })
