@@ -10,12 +10,16 @@ partway through — none of which alone crosses a single-sensor threshold.
 import random
 
 ZONES = [
-    {"id": "cobA", "name": "Coke Oven Battery A"},
-    {"id": "cobB", "name": "Coke Oven Battery B"},
-    {"id": "gasHolder", "name": "Gas Holder Station"},
-    {"id": "maint", "name": "Maintenance Bay 2"},
-    {"id": "permit", "name": "Permit Control Office"},
-    {"id": "assembly", "name": "Worker Assembly Zone"},
+    # x, y, w, h are percentage coordinates (0-100) on the plant layout SVG,
+    # matching a realistic coke-oven battery plant footprint: batteries
+    # adjacent to the gas holder (shared gas main), maintenance/permit
+    # offices set back from the hot zone, worker assembly near the perimeter.
+    {"id": "cobA", "name": "Coke Oven Battery A", "x": 32, "y": 38, "w": 22, "h": 26},
+    {"id": "cobB", "name": "Coke Oven Battery B", "x": 32, "y": 68, "w": 22, "h": 26},
+    {"id": "gasHolder", "name": "Gas Holder Station", "x": 60, "y": 30, "w": 16, "h": 20},
+    {"id": "maint", "name": "Maintenance Bay 2", "x": 60, "y": 58, "w": 16, "h": 18},
+    {"id": "permit", "name": "Permit Control Office", "x": 82, "y": 30, "w": 14, "h": 16},
+    {"id": "assembly", "name": "Worker Assembly Zone", "x": 82, "y": 58, "w": 14, "h": 30},
 ]
 
 TOTAL_TICKS = 60
